@@ -11,7 +11,7 @@ Parser::Parser()
 {
     push_back(punctuation, ";,(,)");
     push_back(keywords, "skip,write,read,while,do,if,then,else,fi,od,:=");
-    push_back(op, "==,!=,>=,<=,&&,||,>,<,+,−,*,/,%");
+    push_back(op, "==,!=,>=,<=,&&,||,:=,>,<,+,−,*,/,%");
 
     rules.push_back(new Rule("E", "X"));
     rules.push_back(new Rule("E", "N"));
@@ -19,18 +19,22 @@ Parser::Parser()
     rules.push_back(new Rule("S", "write E"));
     rules.push_back(new Rule("S", "read E"));
 
+    rules.push_back(new Rule("E", "( B1"));
+    rules.push_back(new Rule("B1", "E )"));
+
     rules.push_back(new Rule("E", "E E1"));
     rules.push_back(new Rule("E1", "OP E"));
 
     rules.push_back(new Rule("S", "S S1"));
     rules.push_back(new Rule("S1", "; S"));
 
+    rules.push_back(new Rule("S", "S ;"));
+
     rules.push_back(new Rule("S", "X S2"));
     rules.push_back(new Rule("S2", ":= E"));
 
     rules.push_back(new Rule("S", "while W1"));
     rules.push_back(new Rule("W1", "E W2"));
-    //rules.push_back(new Rule("W2", "do S"));
     rules.push_back(new Rule("W2", "do W3"));
     rules.push_back(new Rule("W3", "S od"));
 
@@ -38,7 +42,6 @@ Parser::Parser()
     rules.push_back(new Rule("I1", "E I2"));
     rules.push_back(new Rule("I2", "then I3"));
     rules.push_back(new Rule("I3", "S I4"));
-    //rules.push_back(new Rule("I4", "else S"));
     rules.push_back(new Rule("I4", "else I5"));
     rules.push_back(new Rule("I5", "S fi"));
 }
@@ -57,7 +60,14 @@ void Parser::delete_redundant_terms(QStringList &terms, QStringList &words)
         QString third_word = words.at(i+2);
         //QString second_term = terms.at(i+1);
         QString third_term = terms.at(i+2);
-
+        if(term == "(" && third_term == ")")
+        {
+            terms.removeAt(i+2);
+            terms.removeAt(i);
+            words.removeAt(i+2);
+            words.removeAt(i);
+            i=0;
+        }
         if(term == "N")
         {
             if(second_word == "+" || third_term == "N")
@@ -69,6 +79,57 @@ void Parser::delete_redundant_terms(QStringList &terms, QStringList &words)
                 words.removeAt(i+1);
                 i=0;
             }
+            if(words.at(i) == "0")
+            {
+                if(second_word == "&&")
+                {
+                    if(third_term == "X" || third_term == "N")
+                    {
+                        terms.removeAt(i+2);
+                        terms.removeAt(i+1);
+                        words.removeAt(i+2);
+                        words.removeAt(i+1);
+                        i=0;
+                    }
+                }
+                if(second_word == "||")
+                {
+                    if(third_term == "X" || third_term == "N")
+                    {
+                        terms.removeAt(i);
+                        terms.removeAt(i+1);
+                        words.removeAt(i);
+                        words.removeAt(i+1);
+                        i=0;
+                    }
+                }
+            }
+            if(words.at(i) == "1")
+            {
+                if(second_word == "&&")
+                {
+                    if(third_term == "X" || third_term == "N")
+                    {
+                        terms.removeAt(i);
+                        terms.removeAt(i+1);
+                        words.removeAt(i);
+                        words.removeAt(i+1);
+                        i=0;
+                    }
+                }
+                if(second_word == "||")
+                {
+                    if(third_term == "X" || third_term == "N")
+                    {
+                        terms.removeAt(i+2);
+                        terms.removeAt(i+1);
+                        words.removeAt(i+2);
+                        words.removeAt(i+1);
+                        i=0;
+                    }
+                }
+            }
+
         }
         if(term == "X" || term == "N")
         {
@@ -95,15 +156,60 @@ void Parser::delete_redundant_terms(QStringList &terms, QStringList &words)
             }
             else
             {
-                if(second_word == "+")
+                if(second_word == "+" && third_word == "0")
                 {
-                    if(third_word == "0")
+                    terms.removeAt(i+2);
+                    terms.removeAt(i+1);
+                    words.removeAt(i+2);
+                    words.removeAt(i+1);
+                    i=0;
+                }
+                else
+                {
+                    if(second_word == "||")
                     {
-                        terms.removeAt(i+2);
-                        terms.removeAt(i+1);
-                        words.removeAt(i+2);
-                        words.removeAt(i+1);
-                        i=0;
+                        if(third_word == "0")
+                        {
+                            terms.removeAt(i+2);
+                            terms.removeAt(i+1);
+                            words.removeAt(i+2);
+                            words.removeAt(i+1);
+                            i=0;
+                        }
+                        if(third_word == "1")
+                        {
+                            words[i] = "1";
+                            terms[i] = "N";
+                            terms.removeAt(i+2);
+                            terms.removeAt(i+1);
+                            words.removeAt(i+2);
+                            words.removeAt(i+1);
+                            i=0;
+                        }
+                    }
+                    else
+                    {
+                        if(second_word == "&&")
+                        {
+                            if(third_word == "0")
+                            {
+                                words[i] = "0";
+                                terms[i] = "N";
+                                terms.removeAt(i+2);
+                                terms.removeAt(i+1);
+                                words.removeAt(i+2);
+                                words.removeAt(i+1);
+                                i=0;
+                            }
+                            if(third_word == "1")
+                            {
+                                terms.removeAt(i+2);
+                                terms.removeAt(i+1);
+                                words.removeAt(i+2);
+                                words.removeAt(i+1);
+                                i=0;
+                            }
+                        }
                     }
                 }
             }
@@ -303,15 +409,15 @@ void Parser::analyse_lex(QStringList &words)
 {
     for(int i=0; i<words.size(); i++)
     {
-        if(op.contains(words.at(i)))
-        {
-            std::cout << " operator >> " << words.at(i).toStdString() <<"\n";
-            words.replace(i, "OP");
-        }
+        if(keywords.contains(words.at(i)))
+            std::cout << " keyword >> " << words.at(i).toStdString() <<"\n";
         else
         {
-            if(keywords.contains(words.at(i)))
-                std::cout << " keyword >> " << words.at(i).toStdString() <<"\n";
+            if(op.contains(words.at(i)))
+            {
+                std::cout << " operator >> " << words.at(i).toStdString() <<"\n";
+                words.replace(i, "OP");
+            }
             else
             {
                 if( punctuation.contains(words.at(i)))
